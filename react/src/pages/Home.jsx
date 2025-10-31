@@ -90,7 +90,7 @@ function Home({ onRequireAuth }) {
                 )}
               </div>
               <div data-easytag="id18-react/src/pages/Home.jsx" className="p-4 space-y-2">
-                <h3 data-easytag="id19-react/src/pages/Home.jsx" className="text-base font-medium line-clamp-2 group-hover:underline underline-offset-4">{item.title || 'Объявление'}</h3>
+                <h3 data-easytag="id19-react/src/pages/Home.jsx" className="text-base font-medium group-hover:underline underline-offset-4">{item.title || 'Объявление'}</h3>
                 <p data-easytag="id20-react/src/pages/Home.jsx" className="text-sm text-neutral-600">Просмотров: {typeof item.view_count === 'number' ? item.view_count : 0}</p>
               </div>
             </a>
