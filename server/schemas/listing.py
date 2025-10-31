@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, AnyUrl
 
 
@@ -11,7 +11,7 @@ class ListingOut(BaseModel):
     id: int
     url: str
     title: str
-    image_url: str | None
+    image_url: Optional[str] = None
     view_count: int
     created_at: datetime
 

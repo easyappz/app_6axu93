@@ -1,9 +1,20 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
 from typing import Optional
+from pydantic import BaseModel, EmailStr
 
 
-class UserSafe(BaseModel):
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
     id: int
     email: EmailStr
     name: Optional[str] = None
@@ -12,11 +23,5 @@ class UserSafe(BaseModel):
         orm_mode = True
 
 
-class UserMe(BaseModel):
-    id: int
-    email: EmailStr
-    name: Optional[str] = None
+class UserMe(UserOut):
     created_at: datetime
-
-    class Config:
-        orm_mode = True

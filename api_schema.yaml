@@ -1,11 +1,336 @@
 openapi: 3.0.0
 info:
   title: Avitolog API
-  version: '0.1.0'
-  description: |
-    Backend service for Avitolog (Avito listings comments). Uses JWT in Authorization header.
+  version: 0.1.0
 servers:
   - url: /
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                name:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '400':
+          description: Validation error
+        '409':
+          description: Email already registered
+  /auth/login:
+    post:
+      summary: Login with email and password
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '401':
+          description: Invalid credentials
+  /auth/me:
+    get:
+      summary: Get current user profile
+      tags: [auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/User'
+                  - type: object
+                    properties:
+                      created_at:
+                        type: string
+                        format: date-time
+        '401':
+          description: Unauthorized
+  /listings/ingest:
+    post:
+      summary: Ingest an Avito listing by URL (create if not exists)
+      tags: [listings]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Listing created or returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listing:
+                    $ref: '#/components/schemas/Listing'
+        '400':
+          description: Failed to parse or invalid data
+  /listings:
+    get:
+      summary: Get listings sorted by views
+      tags: [listings]
+      parameters:
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [views]
+          example: views
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Listing'
+                  total:
+                    type: integer
+  /listings/{id}:
+    get:
+      summary: Get listing by ID (increments view_count)
+      tags: [listings]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Listing details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listing:
+                    $ref: '#/components/schemas/Listing'
+        '404':
+          description: Listing not found
+  /listings/{id}/comments:
+    get:
+      summary: Get comments for listing
+      tags: [comments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+        '404':
+          description: Listing not found
+    post:
+      summary: Create a comment for listing (auth required)
+      tags: [comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        '201':
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '404':
+          description: Listing not found
+  /comments/{id}:
+    patch:
+      summary: Update comment (author only)
+      tags: [comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        '200':
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not the author)
+        '404':
+          description: Comment not found
+    delete:
+      summary: Delete comment (author only)
+      tags: [comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not the author)
+        '404':
+          description: Comment not found
+  /media/{path}:
+    get:
+      summary: Serve media files
+      tags: [media]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Relative media path like 'listings/<filename>'
+      responses:
+        '200':
+          description: Binary file
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: File not found
 components:
   securitySchemes:
     bearerAuth:
@@ -13,364 +338,64 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    Error:
+    User:
       type: object
       properties:
-        detail:
+        id:
+          type: integer
+        email:
           type: string
-      required: [detail]
-    UserSafe:
-      type: object
-      properties:
-        id: { type: integer }
-        email: { type: string, format: email }
-        name: { type: string, nullable: true }
-      required: [id, email]
-    UserMe:
-      type: object
-      properties:
-        id: { type: integer }
-        email: { type: string, format: email }
-        name: { type: string, nullable: true }
-        created_at: { type: string, format: date-time }
-      required: [id, email, created_at]
-    AuthResponse:
-      type: object
-      properties:
-        user:
-          $ref: '#/components/schemas/UserSafe'
-        token:
+          format: email
+        name:
           type: string
-      required: [user, token]
-    RegisterRequest:
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    Listing:
       type: object
       properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 6 }
-        name: { type: string, nullable: true }
-      required: [email, password]
-    LoginRequest:
+        id:
+          type: integer
+        url:
+          type: string
+        title:
+          type: string
+        image_url:
+          type: string
+          nullable: true
+          description: "/media/... path to image"
+        view_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    Author:
       type: object
       properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 6 }
-      required: [email, password]
-    ListingOut:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+    Comment:
       type: object
       properties:
-        id: { type: integer }
-        url: { type: string }
-        title: { type: string }
-        image_url: { type: string, nullable: true }
-        view_count: { type: integer }
-        created_at: { type: string, format: date-time }
-      required: [id, url, title, view_count, created_at]
-    ListingListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ListingOut'
-        total: { type: integer }
-      required: [items, total]
-    ListingIngestRequest:
-      type: object
-      properties:
-        url: { type: string, format: uri }
-      required: [url]
-    CommentOut:
-      type: object
-      properties:
-        id: { type: integer }
-        listing_id: { type: integer }
-        content: { type: string }
-        created_at: { type: string, format: date-time }
-        updated_at: { type: string, format: date-time }
+        id:
+          type: integer
+        listing_id:
+          type: integer
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
         author:
-          $ref: '#/components/schemas/UserSafe'
-        is_owner: { type: boolean }
-      required: [id, listing_id, content, created_at, updated_at, author, is_owner]
-    CommentListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items: { $ref: '#/components/schemas/CommentOut' }
-      required: [items]
-    CommentCreateRequest:
-      type: object
-      properties:
-        content: { type: string, minLength: 1, maxLength: 5000 }
-      required: [content]
-    CommentUpdateRequest:
-      type: object
-      properties:
-        content: { type: string, minLength: 1, maxLength: 5000 }
-      required: [content]
-paths:
-  /auth/register:
-    post:
-      tags: [Auth]
-      summary: Register a new user
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '409':
-          description: Email already registered
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /auth/login:
-    post:
-      tags: [Auth]
-      summary: Login and obtain JWT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Invalid credentials
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /auth/me:
-    get:
-      tags: [Auth]
-      summary: Get current user profile
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserMe'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /listings/ingest:
-    post:
-      tags: [Listings]
-      summary: Create or return a listing by Avito URL (ingestion)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ListingIngestRequest'
-      responses:
-        '201':
-          description: Created or existing listing returned
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  listing:
-                    $ref: '#/components/schemas/ListingOut'
-                required: [listing]
-        '400':
-          description: Failed to parse listing page
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /listings:
-    get:
-      tags: [Listings]
-      summary: Get listings sorted by views
-      parameters:
-        - in: query
-          name: sort
-          schema: { type: string, enum: [views], default: views }
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListingListResponse'
-  /listings/{id}:
-    get:
-      tags: [Listings]
-      summary: Get listing details and increment view_count
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  listing:
-                    $ref: '#/components/schemas/ListingOut'
-                required: [listing]
-        '404':
-          description: Listing not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /listings/{id}/comments:
-    get:
-      tags: [Listings]
-      summary: List comments for a listing (public)
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CommentListResponse'
-        '404':
-          description: Listing not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    post:
-      tags: [Listings]
-      summary: Create a comment for a listing (auth required)
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommentCreateRequest'
-      responses:
-        '201':
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  comment:
-                    $ref: '#/components/schemas/CommentOut'
-                required: [comment]
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Listing not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  /comments/{id}:
-    patch:
-      tags: [Comments]
-      summary: Update a comment (only by author)
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CommentUpdateRequest'
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  comment:
-                    $ref: '#/components/schemas/CommentOut'
-                required: [comment]
-        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '404': { description: Not Found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-    delete:
-      tags: [Comments]
-      summary: Delete a comment (only by author)
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: integer }
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success: { type: boolean }
-                required: [success]
-        '401': { description: Unauthorized, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '403': { description: Forbidden, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-        '404': { description: Not Found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
-  /media/{path}:
-    get:
-      tags: [Media]
-      summary: Serve media files (static)
-      parameters:
-        - in: path
-          name: path
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: File
-        '404':
-          description: Not Found
+          $ref: '#/components/schemas/Author'
+        is_owner:
+          type: boolean

@@ -1,40 +1,32 @@
-from datetime import datetime, timedelta
+import datetime
 from typing import Optional
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from server.db.database import get_db
 from server.models.user import User
 
-# Hardcoded constants (no .env usage)
-SECRET_KEY = "super-secret-key-change-me-please-very-long"
+SECRET_KEY = "REPLACE_WITH_A_SECURE_RANDOM_STRING_32_CHARS_MIN_2025_10"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 24 * 7  # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-def hash_password(password: str) -> str:
+def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
+def verify_password(plain_password: str, password_hash: str) -> bool:
+    return pwd_context.verify(plain_password, password_hash)
 
-def verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+def create_access_token(subject: str, expires_delta_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
+    expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_delta_minutes)
+    to_encode = {"sub": subject, "exp": expire}
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-
-def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
-    if expires_delta is None:
-        expires_delta = timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
-    expire = datetime.utcnow() + expires_delta
-    to_encode = {"sub": subject, "exp": expire, "type": "access"}
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
-def decode_token(token: str) -> dict:
+def decode_access_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
@@ -43,23 +35,19 @@ def decode_token(token: str) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
+def _extract_bearer_token(auth_header: Optional[str]) -> Optional[str]:
+    if not auth_header:
+        return None
+    parts = auth_header.split()
+    if len(parts) == 2 and parts[0].lower() == "bearer":
+        return parts[1]
+    return None
 
-def _extract_bearer_token(authorization: Optional[str]) -> str:
-    if not authorization:
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    token = _extract_bearer_token(request.headers.get("Authorization"))
+    if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing")
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Authorization header format")
-    return parts[1]
-
-
-def get_current_user(
-    db: Session = Depends(get_db), authorization: Optional[str] = Header(default=None)
-) -> User:
-    token = _extract_bearer_token(authorization)
-    payload = decode_token(token)
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
+    payload = decode_access_token(token)
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
@@ -68,22 +56,14 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
 
-
-def get_optional_user(
-    db: Session = Depends(get_db), authorization: Optional[str] = Header(default=None)
-) -> Optional[User]:
-    if not authorization:
+async def get_optional_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
+    auth_header = request.headers.get("Authorization")
+    token = _extract_bearer_token(auth_header)
+    if not token:
         return None
-    try:
-        token = _extract_bearer_token(authorization)
-        payload = decode_token(token)
-        if payload.get("type") != "access":
-            return None
-        user_id = payload.get("sub")
-        if not user_id:
-            return None
-        user = db.query(User).filter(User.id == int(user_id)).first()
-        return user
-    except HTTPException:
-        # If token invalid, treat as anonymous
+    payload = decode_access_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
         return None
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    return user
