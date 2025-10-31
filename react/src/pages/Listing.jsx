@@ -12,6 +12,7 @@ function Listing({ onRequireAuth }) {
 
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentError, setCommentError] = useState('');
   const [newContent, setNewContent] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -42,10 +43,11 @@ function Listing({ onRequireAuth }) {
   const loadComments = async () => {
     try {
       setCommentsLoading(true);
+      setCommentError('');
       const data = await getComments(id);
       setComments(data.items || []);
     } catch (e) {
-      // ignore
+      setCommentError('Не удалось загрузить комментарии');
     } finally {
       setCommentsLoading(false);
     }
@@ -58,6 +60,7 @@ function Listing({ onRequireAuth }) {
 
   const addComment = async (e) => {
     e.preventDefault();
+    setCommentError('');
     if (!user) {
       onRequireAuth && onRequireAuth();
       return;
@@ -69,7 +72,8 @@ function Listing({ onRequireAuth }) {
       setNewContent('');
       await loadComments();
     } catch (err) {
-      // Handle error silently
+      const msg = err?.response?.data?.detail || 'Ошибка отправки комментария';
+      setCommentError(typeof msg === 'string' ? msg : 'Ошибка');
     } finally {
       setSending(false);
     }
@@ -86,6 +90,7 @@ function Listing({ onRequireAuth }) {
   };
 
   const saveEdit = async (commentId) => {
+    setCommentError('');
     try {
       setUpdating(true);
       await updateComment(commentId, editingValue);
@@ -93,21 +98,35 @@ function Listing({ onRequireAuth }) {
       setEditingValue('');
       await loadComments();
     } catch (e) {
-      // ignore
+      const msg = e?.response?.data?.detail || 'Не удалось сохранить изменения';
+      setCommentError(typeof msg === 'string' ? msg : 'Ошибка');
     } finally {
       setUpdating(false);
     }
   };
 
   const removeComment = async (commentId) => {
+    setCommentError('');
+    const confirmed = window.confirm('Удалить комментарий?');
+    if (!confirmed) return;
     try {
       setUpdating(true);
       await deleteComment(commentId);
       await loadComments();
     } catch (e) {
-      // ignore
+      const msg = e?.response?.data?.detail || 'Не удалось удалить комментарий';
+      setCommentError(typeof msg === 'string' ? msg : 'Ошибка');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const formatDate = (value) => {
+    try {
+      const d = new Date(value);
+      return d.toLocaleString();
+    } catch {
+      return '';
     }
   };
 
@@ -151,6 +170,7 @@ function Listing({ onRequireAuth }) {
               {sending ? 'Отправка…' : 'Отправить'}
             </button>
           </div>
+          {commentError && <p data-easytag="id18a-react/src/pages/Listing.jsx" className="text-sm text-red-600">{commentError}</p>}
         </form>
 
         <div data-easytag="id19-react/src/pages/Listing.jsx" className="space-y-4">
@@ -160,33 +180,39 @@ function Listing({ onRequireAuth }) {
           {!commentsLoading && comments.length === 0 && (
             <div data-easytag="id21-react/src/pages/Listing.jsx" className="text-neutral-500">Пока нет комментариев</div>
           )}
-          {!commentsLoading && comments.map((c) => (
-            <article data-easytag="id22-react/src/pages/Listing.jsx" key={c.id} className="rounded-2xl border bg-white p-4">
-              <header data-easytag="id23-react/src/pages/Listing.jsx" className="flex items-center justify-between mb-2">
-                <div data-easytag="id24-react/src/pages/Listing.jsx" className="text-sm text-neutral-600">{c.author?.email || 'Аноним'}</div>
-                {c.is_owner && (
-                  <div data-easytag="id25-react/src/pages/Listing.jsx" className="flex items-center gap-2">
-                    {editingId === c.id ? (
-                      <>
-                        <button data-easytag="id26-react/src/pages/Listing.jsx" onClick={() => saveEdit(c.id)} disabled={updating || editingValue.length === 0} className="px-3 py-1 rounded-lg bg-black text-white text-sm disabled:opacity-60">Сохранить</button>
-                        <button data-easytag="id27-react/src/pages/Listing.jsx" onClick={cancelEdit} className="px-3 py-1 rounded-lg border text-sm">Отмена</button>
-                      </>
-                    ) : (
-                      <>
-                        <button data-easytag="id28-react/src/pages/Listing.jsx" onClick={() => startEdit(c)} className="px-3 py-1 rounded-lg border text-sm">Редактировать</button>
-                        <button data-easytag="id29-react/src/pages/Listing.jsx" onClick={() => removeComment(c.id)} disabled={updating} className="px-3 py-1 rounded-lg border text-sm">Удалить</button>
-                      </>
-                    )}
+          {!commentsLoading && comments.map((c) => {
+            const isOwner = typeof c.is_owner === 'boolean' ? c.is_owner : (!!user && c.author?.id === user.id);
+            return (
+              <article data-easytag="id22-react/src/pages/Listing.jsx" key={c.id} className="rounded-2xl border bg-white p-4">
+                <header data-easytag="id23-react/src/pages/Listing.jsx" className="flex items-center justify-between mb-2">
+                  <div data-easytag="id24-react/src/pages/Listing.jsx" className="text-sm text-neutral-600">
+                    <span data-easytag="id24a-react/src/pages/Listing.jsx">{c.author?.email || c.author?.name || 'Аноним'}</span>
+                    <span data-easytag="id24b-react/src/pages/Listing.jsx" className="ml-2 text-neutral-400">{formatDate(c.created_at)}</span>
                   </div>
+                  {isOwner && (
+                    <div data-easytag="id25-react/src/pages/Listing.jsx" className="flex items-center gap-2">
+                      {editingId === c.id ? (
+                        <>
+                          <button data-easytag="id26-react/src/pages/Listing.jsx" onClick={() => saveEdit(c.id)} disabled={updating || editingValue.length === 0} className="px-3 py-1 rounded-lg bg-black text-white text-sm disabled:opacity-60">Сохранить</button>
+                          <button data-easytag="id27-react/src/pages/Listing.jsx" onClick={cancelEdit} className="px-3 py-1 rounded-lg border text-sm">Отмена</button>
+                        </>
+                      ) : (
+                        <>
+                          <button data-easytag="id28-react/src/pages/Listing.jsx" onClick={() => startEdit(c)} className="px-3 py-1 rounded-lg border text-sm">Редактировать</button>
+                          <button data-easytag="id29-react/src/pages/Listing.jsx" onClick={() => removeComment(c.id)} disabled={updating} className="px-3 py-1 rounded-lg border text-sm">Удалить</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </header>
+                {editingId === c.id ? (
+                  <textarea data-easytag="id30-react/src/pages/Listing.jsx" value={editingValue} onChange={(e) => setEditingValue(e.target.value)} className="w-full rounded-xl border px-3 py-2 focus:outline-none" rows={3} />
+                ) : (
+                  <p data-easytag="id31-react/src/pages/Listing.jsx" className="leading-relaxed">{c.content}</p>
                 )}
-              </header>
-              {editingId === c.id ? (
-                <textarea data-easytag="id30-react/src/pages/Listing.jsx" value={editingValue} onChange={(e) => setEditingValue(e.target.value)} className="w-full rounded-xl border px-3 py-2 focus:outline-none" rows={3} />
-              ) : (
-                <p data-easytag="id31-react/src/pages/Listing.jsx" className="leading-relaxed">{c.content}</p>
-              )}
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </section>
     </section>
