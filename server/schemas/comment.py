@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AuthorOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     name: Optional[str] = None
@@ -18,6 +20,8 @@ class CommentUpdate(BaseModel):
 
 
 class CommentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     listing_id: int
     content: str
@@ -25,9 +29,6 @@ class CommentOut(BaseModel):
     updated_at: datetime
     author: AuthorOut
     is_owner: bool
-
-    class Config:
-        orm_mode = True
 
 
 class CommentsListResponse(BaseModel):
