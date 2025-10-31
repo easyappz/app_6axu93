@@ -1,13 +1,22 @@
+from datetime import datetime
+from pydantic import BaseModel, EmailStr
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
 
 
-class UserPublic(BaseModel):
+class UserSafe(BaseModel):
     id: int
     email: EmailStr
     name: Optional[str] = None
-    created_at: Optional[str] = Field(default=None, description="ISO datetime")
 
-    model_config = {
-        "from_attributes": True
-    }
+    class Config:
+        orm_mode = True
+
+
+class UserMe(BaseModel):
+    id: int
+    email: EmailStr
+    name: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        orm_mode = True

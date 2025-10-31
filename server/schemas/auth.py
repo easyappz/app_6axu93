@@ -1,19 +1,19 @@
+from pydantic import BaseModel, EmailStr, constr
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
-from server.schemas.user import UserPublic
+from server.schemas.user import UserSafe
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+    password: constr(min_length=6)
     name: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: constr(min_length=6)
 
 
-class TokenResponse(BaseModel):
+class AuthResponse(BaseModel):
+    user: UserSafe
     token: str
-    user: UserPublic

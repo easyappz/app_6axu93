@@ -1,6 +1,5 @@
 from datetime import datetime
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Column, Integer, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from server.db.database import Base
@@ -16,5 +15,5 @@ class Comment(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    listing = relationship("server.models.listing.Listing")
-    author = relationship("server.models.user.User")
+    listing = relationship("Listing", back_populates="comments")
+    author = relationship("User", back_populates="comments")
