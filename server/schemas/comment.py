@@ -31,5 +31,13 @@ class CommentOut(BaseModel):
     is_owner: bool
 
 
+class CommentSingleResponse(BaseModel):
+    comment: CommentOut
+
+
 class CommentsListResponse(BaseModel):
     items: List[CommentOut]
+
+
+class DeleteResponse(BaseModel):
+    success: bool

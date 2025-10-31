@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from server.db.database import get_db
 from server.models.comment import Comment
 from server.models.user import User
-from server.schemas.comment import CommentUpdate, CommentOut, AuthorOut
+from server.schemas.comment import CommentUpdate, CommentOut, AuthorOut, CommentSingleResponse, DeleteResponse
 from server.core.security import get_current_user
 
 router = APIRouter(prefix="/comments", tags=["comments"])
@@ -22,7 +22,7 @@ def to_comment_out(comment: Comment, current_user: User) -> CommentOut:
     )
 
 
-@router.patch("/{comment_id}", response_model=dict)
+@router.patch("/{comment_id}", response_model=CommentSingleResponse)
 def update_comment(
     comment_id: int,
     payload: CommentUpdate,
@@ -40,10 +40,10 @@ def update_comment(
     comment.content = new_content
     db.commit()
     db.refresh(comment)
-    return {"comment": to_comment_out(comment, current_user)}
+    return CommentSingleResponse(comment=to_comment_out(comment, current_user))
 
 
-@router.delete("/{comment_id}", response_model=dict, status_code=status.HTTP_200_OK)
+@router.delete("/{comment_id}", response_model=DeleteResponse, status_code=status.HTTP_200_OK)
 def delete_comment(
     comment_id: int,
     current_user: User = Depends(get_current_user),
@@ -56,4 +56,4 @@ def delete_comment(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not the author of this comment")
     db.delete(comment)
     db.commit()
-    return {"success": True}
+    return DeleteResponse(success=True)

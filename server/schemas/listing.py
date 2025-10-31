@@ -18,6 +18,10 @@ class ListingOut(BaseModel):
     created_at: datetime
 
 
+class ListingSingleResponse(BaseModel):
+    listing: ListingOut
+
+
 class ListingListResponse(BaseModel):
     items: List[ListingOut]
     total: int

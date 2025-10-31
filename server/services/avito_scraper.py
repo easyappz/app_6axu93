@@ -1,5 +1,4 @@
 from typing import Optional, Tuple
-from urllib.parse import urljoin
 
 import os
 import uuid
@@ -26,7 +25,7 @@ def parse_title_and_image(html: str) -> Tuple[Optional[str], Optional[str]]:
     title: Optional[str] = None
     image_url: Optional[str] = None
 
-    # Try Open Graph first
+    # Prefer Open Graph
     og_title = soup.find("meta", property="og:title")
     if og_title and og_title.get("content"):
         title = og_title["content"].strip()
@@ -47,7 +46,7 @@ def parse_title_and_image(html: str) -> Tuple[Optional[str], Optional[str]]:
     if not image_url:
         img = soup.find("img")
         if img and (img.get("src") or img.get("data-src")):
-            image_url = img.get("src") or img.get("data-src")
+            image_url = (img.get("src") or img.get("data-src")).strip()
 
     # Normalize protocol-relative URLs
     if image_url and image_url.startswith("//"):
@@ -61,17 +60,24 @@ def _guess_extension(content_type: Optional[str], url_path: str) -> str:
         ext = mimetypes.guess_extension(content_type.split(";")[0].strip())
         if ext:
             return ext
-    # try from URL
     base, ext = os.path.splitext(url_path)
     if ext:
         return ext
     return ".jpg"
 
 
+def _is_image_content_type(content_type: Optional[str]) -> bool:
+    if not content_type:
+        return False
+    return content_type.split(";")[0].strip().lower().startswith("image/")
+
+
 def download_image(image_url: str) -> str:
     r = requests.get(image_url, headers=DEFAULT_HEADERS, timeout=20, stream=True)
     r.raise_for_status()
-    content_type = r.headers.get("Content-Type")
+    content_type = r.headers.get("Content-Type", "")
+    if not _is_image_content_type(content_type):
+        raise ValueError("URL content is not an image")
     ext = _guess_extension(content_type, image_url)
     filename = f"{uuid.uuid4().hex}{ext}"
     os.makedirs(MEDIA_LISTINGS_DIR, exist_ok=True)

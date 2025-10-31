@@ -2,12 +2,19 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from requests import RequestException
 
 from server.db.database import get_db
 from server.models.listing import Listing
 from server.models.comment import Comment
 from server.models.user import User
-from server.schemas.listing import ListingIngestRequest, ListingOut, ListingListResponse
+from server.schemas.listing import (
+    ListingIngestRequest,
+    ListingOut,
+    ListingListResponse,
+    ListingSingleResponse,
+)
 from server.schemas.comment import CommentCreate, CommentOut, CommentsListResponse, AuthorOut
 from server.core.security import get_current_user, get_optional_user
 from server.services.avito_scraper import fetch_html, parse_title_and_image, download_image
@@ -39,23 +46,44 @@ def to_comment_out(comment: Comment, current_user: Optional[User]) -> CommentOut
     )
 
 
-@router.post("/ingest", response_model=dict, status_code=status.HTTP_200_OK)
+@router.post("/ingest", response_model=ListingSingleResponse, status_code=status.HTTP_200_OK)
 def ingest_listing(payload: ListingIngestRequest, db: Session = Depends(get_db)):
+    # Return existing if already ingested
     existing = db.query(Listing).filter(Listing.url == str(payload.url)).first()
     if existing:
-        return {"listing": to_listing_out(existing)}
-    html = fetch_html(str(payload.url))
+        return ListingSingleResponse(listing=to_listing_out(existing))
+
+    # Fetch and parse
+    try:
+        html = fetch_html(str(payload.url))
+    except RequestException:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch the URL")
+
     title, image_url = parse_title_and_image(html)
     if not title:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to parse listing title")
+
     image_path: Optional[str] = None
     if image_url:
-        image_path = download_image(image_url)
+        try:
+            image_path = download_image(image_url)
+        except Exception:
+            image_path = None  # Only images are saved locally; ignore failures
+
     listing = Listing(url=str(payload.url), title=title, image_path=image_path)
     db.add(listing)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # In case of race, return the existing row
+        existing = db.query(Listing).filter(Listing.url == str(payload.url)).first()
+        if existing:
+            return ListingSingleResponse(listing=to_listing_out(existing))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not create listing")
+
     db.refresh(listing)
-    return {"listing": to_listing_out(listing)}
+    return ListingSingleResponse(listing=to_listing_out(listing))
 
 
 @router.get("", response_model=ListingListResponse)
@@ -72,15 +100,19 @@ def list_listings(
     return ListingListResponse(items=[to_listing_out(x) for x in items], total=total)
 
 
-@router.get("/{listing_id}", response_model=dict)
+@router.get("/{listing_id}", response_model=ListingSingleResponse)
 def get_listing(listing_id: int, db: Session = Depends(get_db)):
-    listing = db.query(Listing).filter(Listing.id == listing_id).first()
-    if not listing:
+    # Atomic increment via DB update
+    updated = (
+        db.query(Listing)
+        .filter(Listing.id == listing_id)
+        .update({Listing.view_count: Listing.view_count + 1}, synchronize_session=False)
+    )
+    if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found")
-    listing.view_count += 1
     db.commit()
-    db.refresh(listing)
-    return {"listing": to_listing_out(listing)}
+    listing = db.query(Listing).filter(Listing.id == listing_id).first()
+    return ListingSingleResponse(listing=to_listing_out(listing))
 
 
 @router.get("/{listing_id}/comments", response_model=CommentsListResponse)

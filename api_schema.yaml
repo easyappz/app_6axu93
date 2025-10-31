@@ -26,6 +26,10 @@ paths:
                 name:
                   type: string
                   nullable: true
+            example:
+              email: user@example.com
+              password: secret123
+              name: John
       responses:
         '201':
           description: Registered successfully
@@ -38,6 +42,15 @@ paths:
                     $ref: '#/components/schemas/User'
                   token:
                     type: string
+              examples:
+                ok:
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      name: John
+                      created_at: '2025-01-01T10:00:00Z'
+                    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
         '400':
           description: Validation error
         '409':
@@ -59,6 +72,9 @@ paths:
                   format: email
                 password:
                   type: string
+            example:
+              email: user@example.com
+              password: secret123
       responses:
         '200':
           description: Authenticated
@@ -71,6 +87,15 @@ paths:
                     $ref: '#/components/schemas/User'
                   token:
                     type: string
+              examples:
+                ok:
+                  value:
+                    user:
+                      id: 1
+                      email: user@example.com
+                      name: John
+                      created_at: '2025-01-01T10:00:00Z'
+                    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
         '401':
           description: Invalid credentials
   /auth/me:
@@ -92,6 +117,13 @@ paths:
                       created_at:
                         type: string
                         format: date-time
+              examples:
+                ok:
+                  value:
+                    id: 1
+                    email: user@example.com
+                    name: John
+                    created_at: '2025-01-01T10:00:00Z'
         '401':
           description: Unauthorized
   /listings/ingest:
@@ -109,6 +141,8 @@ paths:
                 url:
                   type: string
                   format: uri
+            example:
+              url: 'https://www.avito.ru/some-listing'
       responses:
         '200':
           description: Listing created or returned
@@ -119,6 +153,16 @@ paths:
                 properties:
                   listing:
                     $ref: '#/components/schemas/Listing'
+              examples:
+                ok:
+                  value:
+                    listing:
+                      id: 10
+                      url: 'https://www.avito.ru/some-listing'
+                      title: 'iPhone 13, 128GB'
+                      image_url: '/media/listings/abc123.jpg'
+                      view_count: 0
+                      created_at: '2025-01-01T10:05:00Z'
         '400':
           description: Failed to parse or invalid data
   /listings:
@@ -155,6 +199,23 @@ paths:
                       $ref: '#/components/schemas/Listing'
                   total:
                     type: integer
+              examples:
+                ok:
+                  value:
+                    items:
+                      - id: 2
+                        url: 'https://www.avito.ru/l/1'
+                        title: 'MacBook Air M1'
+                        image_url: '/media/listings/1.jpg'
+                        view_count: 102
+                        created_at: '2025-01-01T09:00:00Z'
+                      - id: 3
+                        url: 'https://www.avito.ru/l/2'
+                        title: 'PlayStation 5'
+                        image_url: '/media/listings/2.jpg'
+                        view_count: 88
+                        created_at: '2025-01-01T09:30:00Z'
+                    total: 25
   /listings/{id}:
     get:
       summary: Get listing by ID (increments view_count)
@@ -175,6 +236,16 @@ paths:
                 properties:
                   listing:
                     $ref: '#/components/schemas/Listing'
+              examples:
+                ok:
+                  value:
+                    listing:
+                      id: 2
+                      url: 'https://www.avito.ru/l/1'
+                      title: 'MacBook Air M1'
+                      image_url: '/media/listings/1.jpg'
+                      view_count: 103
+                      created_at: '2025-01-01T09:00:00Z'
         '404':
           description: Listing not found
   /listings/{id}/comments:
@@ -199,6 +270,30 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Comment'
+              examples:
+                ok:
+                  value:
+                    items:
+                      - id: 1
+                        listing_id: 2
+                        content: 'Great deal!'
+                        created_at: '2025-01-01T11:00:00Z'
+                        updated_at: '2025-01-01T11:00:00Z'
+                        author:
+                          id: 1
+                          email: user@example.com
+                          name: John
+                        is_owner: true
+                      - id: 2
+                        listing_id: 2
+                        content: 'Is it still available?'
+                        created_at: '2025-01-01T11:05:00Z'
+                        updated_at: '2025-01-01T11:05:00Z'
+                        author:
+                          id: 2
+                          email: anna@example.com
+                          name: Anna
+                        is_owner: false
         '404':
           description: Listing not found
     post:
@@ -224,6 +319,8 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 5000
+            example:
+              content: 'Interested! Please DM.'
       responses:
         '201':
           description: Comment created
@@ -234,6 +331,20 @@ paths:
                 properties:
                   comment:
                     $ref: '#/components/schemas/Comment'
+              examples:
+                ok:
+                  value:
+                    comment:
+                      id: 3
+                      listing_id: 2
+                      content: 'Interested! Please DM.'
+                      created_at: '2025-01-01T11:10:00Z'
+                      updated_at: '2025-01-01T11:10:00Z'
+                      author:
+                        id: 1
+                        email: user@example.com
+                        name: John
+                      is_owner: true
         '400':
           description: Validation error
         '401':
@@ -264,6 +375,8 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 5000
+            example:
+              content: 'Updated content'
       responses:
         '200':
           description: Updated comment
@@ -274,6 +387,20 @@ paths:
                 properties:
                   comment:
                     $ref: '#/components/schemas/Comment'
+              examples:
+                ok:
+                  value:
+                    comment:
+                      id: 3
+                      listing_id: 2
+                      content: 'Updated content'
+                      created_at: '2025-01-01T11:10:00Z'
+                      updated_at: '2025-01-01T11:15:00Z'
+                      author:
+                        id: 1
+                        email: user@example.com
+                        name: John
+                      is_owner: true
         '400':
           description: Validation error
         '401':
@@ -304,6 +431,10 @@ paths:
                   success:
                     type: boolean
                     example: true
+              examples:
+                ok:
+                  value:
+                    success: true
         '401':
           description: Unauthorized
         '403':
