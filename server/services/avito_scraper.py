@@ -1,74 +1,83 @@
-from pathlib import Path
-from typing import Optional, Tuple
+import os
+import re
 import uuid
+from dataclasses import dataclass
+from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
 
-# Simple scraper using requests + BeautifulSoup. No regex unless necessary.
-DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-}
-
-MEDIA_LISTINGS_DIR = Path(__file__).resolve().parents[1] / "media" / "listings"
+MEDIA_ROOT = os.path.join(os.path.dirname(os.path.dirname(__file__)), "media")
+LISTINGS_DIR = os.path.join(MEDIA_ROOT, "listings")
 
 
-def fetch_html(url: str) -> str:
-    resp = requests.get(url, headers=DEFAULT_HEADERS, timeout=20)
+@dataclass
+class ParsedData:
+    title: Optional[str]
+    image_url: Optional[str]
+
+
+def fetch_html(url: str, timeout: int = 15) -> str:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "ru,en;q=0.9",
+    }
+    resp = requests.get(url, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.text
 
 
-def parse_title_and_image(html: str) -> Tuple[Optional[str], Optional[str]]:
+def parse_title_and_image(html: str) -> ParsedData:
     soup = BeautifulSoup(html, "html.parser")
 
-    # Try OpenGraph metadata first
-    title_tag = soup.find("meta", property="og:title")
-    image_tag = soup.find("meta", property="og:image")
+    # Prefer OpenGraph metadata
+    og_title = soup.find("meta", attrs={"property": "og:title"})
+    og_image = soup.find("meta", attrs={"property": "og:image"})
 
-    title: Optional[str] = title_tag.get("content").strip() if title_tag and title_tag.get("content") else None
-    image_url: Optional[str] = image_tag.get("content").strip() if image_tag and image_tag.get("content") else None
+    title = og_title["content"].strip() if og_title and og_title.get("content") else None
+    image_url = og_image["content"].strip() if og_image and og_image.get("content") else None
 
-    # Fallbacks
     if not title:
-        h1 = soup.find("h1")
-        if h1 and h1.text:
-            title = h1.get_text(strip=True)
+        t = soup.find("title")
+        if t and t.text:
+            title = t.text.strip()
 
     if not image_url:
-        # Try first <img> with plausible attributes
+        # try to find first reasonably-sized image
         img = soup.find("img")
-        if img and (img.get("src") or img.get("data-src")):
-            image_url = img.get("src") or img.get("data-src")
+        if img and img.get("src"):
+            image_url = img["src"]
 
-    return title, image_url
+    return ParsedData(title=title, image_url=image_url)
 
 
-def _infer_ext_from_content_type(content_type: str) -> str:
-    mapping = {
-        "image/jpeg": ".jpg",
-        "image/jpg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
-    }
-    return mapping.get(content_type.lower(), ".jpg")
+def _guess_ext_from_url(url: str) -> str:
+    path = urlparse(url).path
+    basename = os.path.basename(path)
+    m = re.search(r"\.(jpg|jpeg|png|webp|gif)(?:$|\?)", basename, re.IGNORECASE)
+    if m:
+        return "." + m.group(1).lower()
+    return ".jpg"
 
 
 def download_image(image_url: str) -> str:
-    MEDIA_LISTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    os.makedirs(LISTINGS_DIR, exist_ok=True)
+    ext = _guess_ext_from_url(image_url)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    abs_path = os.path.join(LISTINGS_DIR, filename)
 
-    with requests.get(image_url, headers=DEFAULT_HEADERS, timeout=30, stream=True) as r:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.avito.ru/",
+    }
+    with requests.get(image_url, headers=headers, stream=True, timeout=20) as r:
         r.raise_for_status()
-        content_type = r.headers.get("Content-Type", "image/jpeg")
-        ext = _infer_ext_from_content_type(content_type)
-        filename = f"{uuid.uuid4().hex}{ext}"
-        filepath = MEDIA_LISTINGS_DIR / filename
-        with open(filepath, "wb") as f:
+        with open(abs_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
 
-    # Return relative path under /media
-    relative_path = f"listings/{filename}"
-    return relative_path
+    # Return relative path for DB storage (relative to /media/)
+    return f"listings/{filename}"

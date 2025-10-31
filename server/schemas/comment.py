@@ -1,13 +1,13 @@
-from datetime import datetime
+from typing import List
 from pydantic import BaseModel, Field
 from server.schemas.user import UserPublic
 
 
-class CommentCreate(BaseModel):
+class CommentCreateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=5000)
 
 
-class CommentUpdate(BaseModel):
+class CommentUpdateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=5000)
 
 
@@ -15,10 +15,15 @@ class CommentOut(BaseModel):
     id: int
     listing_id: int
     content: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: str
+    updated_at: str
     author: UserPublic
     is_owner: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class CommentsListResponse(BaseModel):
+    items: List[CommentOut]
