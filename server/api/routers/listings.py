@@ -19,7 +19,7 @@ from server.schemas.comment import CommentCreate, CommentOut, CommentsListRespon
 from server.core.security import get_current_user, get_optional_user
 from server.services.avito_scraper import fetch_html, parse_title_and_image, download_image
 
-router = APIRouter(prefix="/listings", tags=["listings"])
+router = APIRouter(tags=["listings"])  # no global prefix; paths are fully qualified below
 
 
 def to_listing_out(listing: Listing) -> ListingOut:
@@ -46,7 +46,7 @@ def to_comment_out(comment: Comment, current_user: Optional[User]) -> CommentOut
     )
 
 
-@router.post("/ingest", response_model=ListingSingleResponse, status_code=status.HTTP_200_OK)
+@router.post("/listings/ingest", response_model=ListingSingleResponse, status_code=status.HTTP_200_OK)
 def ingest_listing(payload: ListingIngestRequest, db: Session = Depends(get_db)):
     # Return existing if already ingested
     existing = db.query(Listing).filter(Listing.url == str(payload.url)).first()
@@ -86,7 +86,7 @@ def ingest_listing(payload: ListingIngestRequest, db: Session = Depends(get_db))
     return ListingSingleResponse(listing=to_listing_out(listing))
 
 
-@router.get("", response_model=ListingListResponse)
+@router.get("/listings", response_model=ListingListResponse)
 def list_listings(
     sort: str = Query("views", pattern="^views$"),
     limit: int = Query(10, ge=1, le=100),
@@ -100,7 +100,7 @@ def list_listings(
     return ListingListResponse(items=[to_listing_out(x) for x in items], total=total)
 
 
-@router.get("/{listing_id}", response_model=ListingSingleResponse)
+@router.get("/listings/{listing_id}", response_model=ListingSingleResponse)
 def get_listing(listing_id: int, db: Session = Depends(get_db)):
     # Atomic increment via DB update
     updated = (
@@ -115,7 +115,7 @@ def get_listing(listing_id: int, db: Session = Depends(get_db)):
     return ListingSingleResponse(listing=to_listing_out(listing))
 
 
-@router.get("/{listing_id}/comments", response_model=CommentsListResponse)
+@router.get("/listings/{listing_id}/comments", response_model=CommentsListResponse)
 def get_listing_comments(
     listing_id: int,
     current_user: Optional[User] = Depends(get_optional_user),
@@ -133,7 +133,7 @@ def get_listing_comments(
     return CommentsListResponse(items=[to_comment_out(c, current_user) for c in comments])
 
 
-@router.post("/{listing_id}/comments", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("/listings/{listing_id}/comments", response_model=dict, status_code=status.HTTP_201_CREATED)
 def create_comment(
     listing_id: int,
     payload: CommentCreate,

@@ -7,10 +7,10 @@ from server.schemas.user import UserCreate, UserLogin, UserOut, UserMe
 from server.schemas.auth import AuthResponse
 from server.core.security import get_password_hash, verify_password, create_access_token, get_current_user
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])  # no global prefix; paths are fully qualified below
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/auth/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
@@ -30,7 +30,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     return AuthResponse(user=UserOut.model_validate(user), token=token)
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/auth/login", response_model=AuthResponse)
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
@@ -39,6 +39,6 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
     return AuthResponse(user=UserOut.model_validate(user), token=token)
 
 
-@router.get("/me", response_model=UserMe)
+@router.get("/auth/me", response_model=UserMe)
 def me(current_user: User = Depends(get_current_user)):
     return current_user

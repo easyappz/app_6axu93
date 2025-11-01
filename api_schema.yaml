@@ -5,7 +5,7 @@ info:
 servers:
   - url: /
 paths:
-  /auth/register:
+  /api/auth/register:
     post:
       summary: Register a new user
       tags: [auth]
@@ -49,13 +49,12 @@ paths:
                       id: 1
                       email: user@example.com
                       name: John
-                      created_at: '2025-01-01T10:00:00Z'
                     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
         '400':
           description: Validation error
         '409':
           description: Email already registered
-  /auth/login:
+  /api/auth/login:
     post:
       summary: Login with email and password
       tags: [auth]
@@ -94,11 +93,10 @@ paths:
                       id: 1
                       email: user@example.com
                       name: John
-                      created_at: '2025-01-01T10:00:00Z'
                     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
         '401':
           description: Invalid credentials
-  /auth/me:
+  /api/auth/me:
     get:
       summary: Get current user profile
       tags: [auth]
@@ -110,13 +108,7 @@ paths:
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/User'
-                  - type: object
-                    properties:
-                      created_at:
-                        type: string
-                        format: date-time
+                $ref: '#/components/schemas/UserMe'
               examples:
                 ok:
                   value:
@@ -126,7 +118,7 @@ paths:
                     created_at: '2025-01-01T10:00:00Z'
         '401':
           description: Unauthorized
-  /listings/ingest:
+  /api/listings/ingest:
     post:
       summary: Ingest an Avito listing by URL (create if not exists)
       tags: [listings]
@@ -165,7 +157,7 @@ paths:
                       created_at: '2025-01-01T10:05:00Z'
         '400':
           description: Failed to parse or invalid data
-  /listings:
+  /api/listings:
     get:
       summary: Get listings sorted by views
       tags: [listings]
@@ -216,7 +208,7 @@ paths:
                         view_count: 88
                         created_at: '2025-01-01T09:30:00Z'
                     total: 25
-  /listings/{id}:
+  /api/listings/{id}:
     get:
       summary: Get listing by ID (increments view_count)
       tags: [listings]
@@ -248,7 +240,7 @@ paths:
                       created_at: '2025-01-01T09:00:00Z'
         '404':
           description: Listing not found
-  /listings/{id}/comments:
+  /api/listings/{id}/comments:
     get:
       summary: Get comments for listing
       tags: [comments]
@@ -351,7 +343,7 @@ paths:
           description: Unauthorized
         '404':
           description: Listing not found
-  /comments/{id}:
+  /api/comments/{id}:
     patch:
       summary: Update comment (author only)
       tags: [comments]
@@ -441,7 +433,7 @@ paths:
           description: Forbidden (not the author)
         '404':
           description: Comment not found
-  /media/{path}:
+  /api/media/{path}:
     get:
       summary: Serve media files
       tags: [media]
@@ -480,9 +472,14 @@ components:
         name:
           type: string
           nullable: true
-        created_at:
-          type: string
-          format: date-time
+    UserMe:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            created_at:
+              type: string
+              format: date-time
     Listing:
       type: object
       properties:

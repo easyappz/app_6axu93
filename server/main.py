@@ -37,10 +37,12 @@ def create_app() -> FastAPI:
     ensure_media_dirs()
     init_db()
 
-    app.include_router(auth_router.router)
-    app.include_router(listings_router.router)
-    app.include_router(comments_router.router)
+    # Serve all API under /api prefix
+    app.include_router(auth_router.router, prefix="/api")
+    app.include_router(listings_router.router, prefix="/api")
+    app.include_router(comments_router.router, prefix="/api")
 
+    # Keep media as is
     app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 
     return app
