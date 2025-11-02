@@ -42,8 +42,14 @@ def create_app() -> FastAPI:
     app.include_router(listings_router.router, prefix="/api")
     app.include_router(comments_router.router, prefix="/api")
 
-    # Keep media as is
+    # Health check endpoint
+    @app.get("/api/hello")
+    def hello():  # type: ignore[return-value]
+        return {"status": "ok"}
+
+    # Media mounts: support both /media and /api/media for compatibility
     app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
+    app.mount("/api/media", StaticFiles(directory=MEDIA_ROOT), name="api-media")
 
     return app
 

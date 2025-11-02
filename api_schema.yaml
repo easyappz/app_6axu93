@@ -5,6 +5,24 @@ info:
 servers:
   - url: /
 paths:
+  /api/hello:
+    get:
+      summary: Health check
+      tags: [health]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+              examples:
+                ok:
+                  value:
+                    status: ok
   /api/auth/register:
     post:
       summary: Register a new user
