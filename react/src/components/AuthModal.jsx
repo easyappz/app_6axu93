@@ -13,6 +13,12 @@ function AuthModal({ onClose }) {
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (tab === 'register' && password.length < 6) {
+      setError('Слишком короткий пароль (мин. 6)');
+      return;
+    }
+
     setLoading(true);
     try {
       if (tab === 'login') {
@@ -22,8 +28,25 @@ function AuthModal({ onClose }) {
       }
       onClose();
     } catch (err) {
-      const msg = err?.response?.data?.detail || 'Ошибка. Проверьте данные и попробуйте снова.';
-      setError(typeof msg === 'string' ? msg : 'Ошибка авторизации');
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      let uiMessage = '';
+
+      if (status === 409) {
+        uiMessage = 'Email уже зарегистрирован';
+      } else if (status === 401) {
+        uiMessage = 'Неверные данные для входа';
+      } else if (status === 400) {
+        uiMessage = 'Некорректные данные. Слишком короткий пароль (мин. 6).';
+      }
+
+      if (!uiMessage && typeof detail === 'string') {
+        uiMessage = detail;
+      }
+      if (!uiMessage) {
+        uiMessage = 'Ошибка. Проверьте данные и попробуйте снова.';
+      }
+      setError(uiMessage);
     } finally {
       setLoading(false);
     }
@@ -38,8 +61,8 @@ function AuthModal({ onClose }) {
           <button data-easytag="id6-react/src/components/AuthModal.jsx" onClick={onClose} className="p-2 rounded-full hover:bg-neutral-100">✕</button>
         </div>
         <div data-easytag="id7-react/src/components/AuthModal.jsx" className="grid grid-cols-2 gap-2 mb-6">
-          <button data-easytag="id8-react/src/components/AuthModal.jsx" onClick={() => setTab('login')} className={`px-4 py-2 rounded-xl border ${tab === 'login' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-50'}`}>Вход</button>
-          <button data-easytag="id9-react/src/components/AuthModal.jsx" onClick={() => setTab('register')} className={`px-4 py-2 rounded-xl border ${tab === 'register' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-50'}`}>Регистрация</button>
+          <button data-easytag="id8-react/src/components/AuthModal.jsx" type="button" onClick={() => setTab('login')} className={`px-4 py-2 rounded-xl border ${tab === 'login' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-50'}`}>Вход</button>
+          <button data-easytag="id9-react/src/components/AuthModal.jsx" type="button" onClick={() => setTab('register')} className={`px-4 py-2 rounded-xl border ${tab === 'register' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-50'}`}>Регистрация</button>
         </div>
         <form data-easytag="id10-react/src/components/AuthModal.jsx" onSubmit={onSubmit} className="space-y-4">
           {tab === 'register' && (

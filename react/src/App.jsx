@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header.jsx';
 import Home from './pages/Home.jsx';
@@ -8,13 +8,6 @@ import AuthModal from './components/AuthModal.jsx';
 
 function App() {
   const [authOpen, setAuthOpen] = useState(false);
-
-  useEffect(() => {
-    const routes = ['/', '/ad/:id', '*'];
-    if (typeof window.handleRoutes === 'function') {
-      window.handleRoutes(routes);
-    }
-  }, []);
 
   return (
     <div data-easytag="id1-react/src/App.jsx" className="min-h-screen bg-neutralBg">
